@@ -171,6 +171,9 @@ function Index() {
                     {selecionado.pessoa} · ★ {selecionado.nota.toFixed(1)} ·{" "}
                     {selecionado.categoria}
                   </p>
+                  <p className="mt-1 text-[11px] font-semibold text-accent">
+                    {formatarDistancia(distancia(centro, selecionado))}
+                  </p>
                 </div>
                 <div className="shrink-0 text-right">
                   <p className="font-display text-xl text-primary">
