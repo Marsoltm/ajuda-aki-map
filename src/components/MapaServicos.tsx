@@ -138,7 +138,7 @@ export function MapaServicos({ centro, anuncios, selecionadoId, onSelecionar }: 
     anuncios.forEach((a) => {
       const cor = a.tipo === "oferece" ? "#e2661a" : "#1f8a70";
       const ativo = a.id === selecionadoId;
-      const pos = { lat: centro.lat + a.dLat, lng: centro.lng + a.dLng };
+      const pos = { lat: a.lat, lng: a.lng };
       if (!atuais[a.id]) {
         const m = new window.google.maps.Marker({
           position: pos,
@@ -161,14 +161,14 @@ export function MapaServicos({ centro, anuncios, selecionadoId, onSelecionar }: 
     if (!mapa.current || !window.google || selecionadoId || anuncios.length === 0) return;
     const b = new window.google.maps.LatLngBounds();
     b.extend(centro);
-    anuncios.forEach((a) => b.extend({ lat: centro.lat + a.dLat, lng: centro.lng + a.dLng }));
+    anuncios.forEach((a) => b.extend({ lat: a.lat, lng: a.lng }));
     mapa.current.fitBounds(b, { top: 200, bottom: 140, left: 32, right: 32 });
   }, [anuncios, centro, selecionadoId, status]);
 
   useEffect(() => {
     if (!mapa.current || !selecionadoId) return;
     const a = anuncios.find((x) => x.id === selecionadoId);
-    if (a) mapa.current.panTo({ lat: centro.lat + a.dLat, lng: centro.lng + a.dLng });
+    if (a) mapa.current.panTo({ lat: a.lat, lng: a.lng });
   }, [selecionadoId, anuncios, centro]);
 
   return (
