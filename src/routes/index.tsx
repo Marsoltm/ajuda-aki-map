@@ -27,6 +27,22 @@ export const Route = createFileRoute("/")({
 
 const PADRAO = { lat: -23.5615, lng: -46.6559 };
 
+/** distância em metros entre o usuário e um anúncio */
+function distancia(centro: { lat: number; lng: number }, a: { dLat: number; dLng: number }) {
+  const rad = Math.PI / 180;
+  const lat1 = centro.lat * rad;
+  const lat2 = (centro.lat + a.dLat) * rad;
+  const dLat = a.dLat * rad;
+  const dLng = a.dLng * rad;
+  const h =
+    Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
+  return Math.round(2 * 6371000 * Math.asin(Math.sqrt(h)));
+}
+
+function formatarDistancia(m: number) {
+  return m < 1000 ? `${m} m de você` : `${(m / 1000).toFixed(1).replace(".", ",")} km de você`;
+}
+
 function Index() {
   const [centro, setCentro] = useState(PADRAO);
   const [modo, setModo] = useState<Tipo>("oferece");
