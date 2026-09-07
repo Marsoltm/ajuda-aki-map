@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Anuncio } from "@/data/anuncios";
 
 type Coord = { lat: number; lng: number };
@@ -32,7 +32,10 @@ function carregarMaps(): Promise<void> {
     const s = document.createElement("script");
     s.src = `https://maps.googleapis.com/maps/api/js?key=${key}&loading=async&callback=__ajudaAkiMapReady&channel=${channel}`;
     s.async = true;
-    s.onerror = () => reject(new Error("Falha ao carregar o mapa"));
+    s.onerror = () => {
+      carregando = null;
+      reject(new Error("Falha ao carregar o mapa"));
+    };
     document.head.appendChild(s);
   });
   return carregando;
@@ -64,7 +67,9 @@ function ponto(cor: string, ativo: boolean) {
 export function MapaServicos({ centro, anuncios, selecionadoId, onSelecionar }: Props) {
   const div = useRef<HTMLDivElement | null>(null);
   const mapa = useRef<any>(null);
+  const voce = useRef<any>(null);
   const marcadores = useRef<Record<string, any>>({});
+  const [status, setStatus] = useState<"carregando" | "pronto" | "erro">("carregando");
 
   useEffect(() => {
     let cancelado = false;
@@ -76,10 +81,11 @@ export function MapaServicos({ centro, anuncios, selecionadoId, onSelecionar }: 
           zoom: 15,
           disableDefaultUI: true,
           gestureHandling: "greedy",
+          clickableIcons: false,
           styles: ESTILO_MAPA,
         });
 
-        new window.google.maps.Marker({
+        voce.current = new window.google.maps.Marker({
           position: centro,
           map: mapa.current,
           icon: {
@@ -93,13 +99,29 @@ export function MapaServicos({ centro, anuncios, selecionadoId, onSelecionar }: 
           zIndex: 1,
           title: "Você está aqui",
         });
+
+        mapa.current.addListener("click", () => onSelecionarRef.current(""));
+        setStatus("pronto");
       })
-      .catch(() => undefined);
+      .catch(() => {
+        if (!cancelado) setStatus("erro");
+      });
     return () => {
       cancelado = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // permite limpar a seleção tocando no mapa, sem recriar o listener
+  const onSelecionarRef = useRef(onSelecionar);
+  onSelecionarRef.current = onSelecionar;
+
+  // seu marcador acompanha o GPS quando ele chega
+  useEffect(() => {
+    if (!mapa.current || !voce.current) return;
+    voce.current.setPosition(centro);
+    mapa.current.panTo(centro);
+  }, [centro]);
 
   useEffect(() => {
     if (!mapa.current || !window.google) return;
@@ -116,20 +138,32 @@ export function MapaServicos({ centro, anuncios, selecionadoId, onSelecionar }: 
     anuncios.forEach((a) => {
       const cor = a.tipo === "oferece" ? "#e2661a" : "#1f8a70";
       const ativo = a.id === selecionadoId;
+      const pos = { lat: centro.lat + a.dLat, lng: centro.lng + a.dLng };
       if (!atuais[a.id]) {
         const m = new window.google.maps.Marker({
-          position: { lat: centro.lat + a.dLat, lng: centro.lng + a.dLng },
+          position: pos,
           map: mapa.current,
           icon: ponto(cor, ativo),
           zIndex: 5,
+          title: a.titulo,
         });
-        m.addListener("click", () => onSelecionar(a.id));
+        m.addListener("click", () => onSelecionarRef.current(a.id));
         atuais[a.id] = m;
       } else {
+        atuais[a.id].setPosition(pos);
         atuais[a.id].setIcon(ponto(cor, ativo));
       }
     });
-  }, [anuncios, selecionadoId, centro, onSelecionar]);
+  }, [anuncios, selecionadoId, centro]);
+
+  // enquadra todas as bolinhas quando a lista muda e nada está selecionado
+  useEffect(() => {
+    if (!mapa.current || !window.google || selecionadoId || anuncios.length === 0) return;
+    const b = new window.google.maps.LatLngBounds();
+    b.extend(centro);
+    anuncios.forEach((a) => b.extend({ lat: centro.lat + a.dLat, lng: centro.lng + a.dLng }));
+    mapa.current.fitBounds(b, { top: 200, bottom: 140, left: 32, right: 32 });
+  }, [anuncios, centro, selecionadoId, status]);
 
   useEffect(() => {
     if (!mapa.current || !selecionadoId) return;
@@ -137,5 +171,21 @@ export function MapaServicos({ centro, anuncios, selecionadoId, onSelecionar }: 
     if (a) mapa.current.panTo({ lat: centro.lat + a.dLat, lng: centro.lng + a.dLng });
   }, [selecionadoId, anuncios, centro]);
 
-  return <div ref={div} className="absolute inset-0" aria-label="Mapa de serviços por perto" />;
+  return (
+    <div className="absolute inset-0">
+      <div ref={div} className="absolute inset-0" aria-label="Mapa de serviços por perto" />
+      {status === "carregando" && (
+        <div className="absolute inset-0 grid place-items-center bg-background">
+          <p className="animate-pulse text-sm text-muted-foreground">Carregando o mapa…</p>
+        </div>
+      )}
+      {status === "erro" && (
+        <div className="absolute inset-0 grid place-items-center bg-background p-6 text-center">
+          <p className="text-sm text-muted-foreground">
+            Não foi possível carregar o mapa agora. Verifique sua conexão e tente de novo.
+          </p>
+        </div>
+      )}
+    </div>
+  );
 }

@@ -18,6 +18,8 @@ export const Route = createFileRoute("/")({
         content:
           "Veja no mapa quem oferece ou procura serviços perto de você, com fotos do trabalho e valor na hora.",
       },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   component: Index,
